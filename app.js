@@ -3,10 +3,8 @@
 
 {
 	let jobIds = [];
-	let btnClickCount = 0;
 	let stack = [];
 
-	const currentlyDisplayIds = [];
 	const apiUrl = 'https://hacker-news.firebaseio.com/v0/';
 	const yComUrl = 'https://news.ycombinator.com/item?id=';
 	const mainContainerDiv = document.getElementById('container');
@@ -17,14 +15,25 @@
 		jobIds = data;
 	};
 
-	const getJobMetaData = async (ids, totalClicks = 0) => {
-		const numberOfIdsToRetrieve = totalClicks * 6 + 9;
-		console.log('totalClicks', totalClicks);
+	const getJobMetaData = async (ids) => {
+		let idsToRender;
 		let jobsArray = [];
-		let firstNineIds = ids.splice(0, numberOfIdsToRetrieve);
-		console.log(firstNineIds);
+		//keep track of the last number of jobs to show == stack
+		//splice from that number => 6
+		//pass that value to fetch
+		//replace stack[0] with new total number of jobs
+		if (stack.length === 0) {
+			idsToRender = ids.splice(0, 9);
+			stack.push(idsToRender);
+		} else {
+			idsToRender = ids.splice(stack[0], stack[0] + 6);
+			stack.pop();
+			stack.push(idsToRender);
+		}
+
+		console.log(idsToRender);
 		await Promise.all(
-			firstNineIds.map(async (id) => {
+			idsToRender.map(async (id) => {
 				const response = await fetch(`${apiUrl}/item/${id}.json`);
 				const data = await response.json();
 				jobsArray.push(data);
@@ -36,6 +45,7 @@
 	const populateMainDiv = async (data) => {
 		await getJobIds();
 		const jobData = await getJobMetaData(jobIds);
+		console.log(jobData);
 		jobData.map((item) => {
 			const jobCard = document.createElement('div');
 			const jobTitle = document.createElement('h2');
@@ -43,7 +53,16 @@
 			const jobDate = document.createElement('p');
 			const hiddenSpan = document.createElement('span');
 
-			const title = item.title.substring(0, item.title.indexOf(')') + 1);
+			let title = '';
+			console.log(item.title);
+			if (item.title.indexOf(')') === -1) {
+				const tempArr = item.title.split(' ');
+				title = tempArr[0];
+				tempArr.shift();
+				item.title = tempArr.join(' ');
+			} else {
+				title = item.title.substring(0, item.title.indexOf(')') + 1);
+			}
 			jobTitle.textContent = title;
 
 			const desc = item.title.substring(item.title.indexOf(')') + 1);
@@ -73,9 +92,7 @@
 
 	const loadMoreBtn = document.getElementById('loadMoreBtn');
 	loadMoreBtn.addEventListener('click', async () => {
-		btnClickCount++;
-		console.log('btn count', btnClickCount);
-		const jobData = await getJobMetaData(jobIds, btnClickCount);
+		const jobData = await getJobMetaData(jobIds);
 		await populateMainDiv(jobData);
 	});
 
